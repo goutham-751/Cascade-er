@@ -136,8 +136,11 @@ FEATURE_NAMES += ['compact_name_ratio', 'compact_name_partial', 'phonetic_name_r
                   'name_initials_ratio', 'address_letters_sorted', 'address_letters_set',
                   'fuzzy_number_best', 'fuzzy_number_mean', 'name_token_containment',
                   'address_token_containment', 'anchor_name_frequency', 'target_name_frequency']
+FEATURE_NAMES += ['name_jaro_winkler', 'core_jaro_winkler', 'address_jaro_winkler',
+                  'name_levenshtein', 'core_levenshtein']
 
 def features(a, b, con=None):
+    from rapidfuzz.distance import JaroWinkler, Levenshtein
     _, an, ac, aa, _ = a
     _, bn, bc, ba, _ = b
     nums_a, nums_b = re.findall(r'\b\d+\b', aa), re.findall(r'\b\d+\b', ba)
@@ -169,7 +172,12 @@ def features(a, b, con=None):
             len(set(ac.split())&set(bc.split()))/max(1,min(len(set(ac.split())),len(set(bc.split())))),
             len(set(aa.split())&set(ba.split()))/max(1,min(len(set(aa.split())),len(set(ba.split())))),
             np.log1p(con.name_frequency(a)) if con else 0.0,
-            np.log1p(con.name_frequency(b)) if con else 0.0]
+            np.log1p(con.name_frequency(b)) if con else 0.0,
+            JaroWinkler.normalized_similarity(an, bn),
+            JaroWinkler.normalized_similarity(ac, bc),
+            JaroWinkler.normalized_similarity(aa, ba),
+            Levenshtein.normalized_similarity(an, bn),
+            Levenshtein.normalized_similarity(ac, bc)]
 
 
 @lru_cache(maxsize=100000)
