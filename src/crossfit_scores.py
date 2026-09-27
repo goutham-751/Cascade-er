@@ -15,7 +15,7 @@ def main():
     for k in range(4):
         fit=train&(pfold!=k) if k<3 else train
         predict=train&(pfold==k) if k<3 else ~train
-        model=XGBClassifier(n_estimators=a.trees,max_depth=a.depth,learning_rate=.07,subsample=.85,colsample_bytree=.9,tree_method='hist',n_jobs=4,random_state=42,eval_metric='logloss')
+        model=XGBClassifier(n_estimators=a.trees,max_depth=a.depth,learning_rate=.05,subsample=.85,colsample_bytree=.85,max_bin=512,tree_method='hist',n_jobs=4,random_state=42,eval_metric='logloss')
         model.fit(x[fit],y[fit]);predictions[predict]=model.predict_proba(x[predict])[:,1]
         if k==3:model.save_model(out/'base_model.ubj')
         log(f'Crossfit stage {k+1}/4 complete; {time.monotonic()-start:.1f}s')

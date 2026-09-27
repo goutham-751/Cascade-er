@@ -49,7 +49,7 @@ def main():
                 subsample=.85,subsample_freq=1,colsample_bytree=.9,reg_lambda=1.0,min_child_samples=40,
                 n_jobs=4,random_state=42,verbosity=-1,importance_type='gain')
         else:
-            model=XGBClassifier(n_estimators=trees,max_depth=depth,learning_rate=.07,subsample=.85,colsample_bytree=.9,tree_method='hist',n_jobs=4,random_state=42,eval_metric='logloss')
+            model=XGBClassifier(n_estimators=trees,max_depth=depth,learning_rate=.05,subsample=.85,colsample_bytree=.85,max_bin=512,tree_method='hist',n_jobs=4,random_state=42,eval_metric='logloss')
         model.fit(train_x,train_y,sample_weight=train_weight)
         score=np.asarray(model.predict_proba(tune_x)[:,1],dtype=np.float32)
         top=best_indices(score,tg,n)

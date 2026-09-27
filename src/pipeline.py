@@ -76,29 +76,47 @@ def record(row):
 
 
 def keys(rec):
+    from retrieval_extras import phonetic
     _, name, core, address, country = rec
-    tokens = sorted(set(t for t in core.split() if len(t) >= 3), key=lambda t: (-len(t), t))[:6]
+    # Include 2-char tokens (important for Asian businesses) and up to 8 tokens
+    tokens = sorted(set(t for t in core.split() if len(t) >= 2), key=lambda t: (-len(t), t))[:8]
     result = {country + '|t|' + t[:5] for t in tokens}
+    
+    # Add phonetic blocking keys for the longest 3 tokens to catch severe spelling mistakes
+    for t in tokens[:3]:
+        ph = phonetic(t)
+        if ph:
+            result.add(country + '|ph|' + ph)
+
     compact = core.replace(' ', '')
     if compact:
         result.add(country + '|n|' + compact[:8])
+        # Cross-border compact name match (in case country label is wrong/missing)
+        result.add('xb|n|' + compact[:8])
+        
     numbers = re.findall(r'\b\d+\b', address)
     if numbers and compact:
         result.add(country + '|h|' + numbers[0] + '|' + compact[:3])
     for number in numbers:
         if len(number) in (5, 6) and compact:
             result.add(country + '|p|' + number + '|' + compact[:2])
+            
     if core:
-        result.add(country + '|e|' + hashlib.blake2b(' '.join(sorted(core.split())).encode(), digest_size=8).hexdigest())
+        core_hash = hashlib.blake2b(' '.join(sorted(core.split())).encode(), digest_size=8).hexdigest()
+        result.add(country + '|e|' + core_hash)
+        # Cross-border exact match
+        result.add('xb|e|' + core_hash)
+        
     if address:
         result.add(country + '|a|' + hashlib.blake2b(address.encode(), digest_size=8).hexdigest())
+        
     # Name-independent retrieval reaches transliterated and renamed businesses.
-    addr_tokens = sorted({t for t in address.split() if len(t) >= 4 and not t.isdigit()
-                          and t not in {'null', 'floor', 'near', 'india', 'opposite', 'building'}},
-                         key=lambda t: (-len(t), t))[:5]
-    for number in list(dict.fromkeys(numbers))[:3]:
+    addr_tokens = sorted({t for t in address.split() if len(t) >= 3 and not t.isdigit()
+                          and t not in {'null', 'floor', 'near', 'india', 'opposite', 'building', 'street', 'road', 'avenue'}},
+                         key=lambda t: (-len(t), t))[:6]
+    for number in list(dict.fromkeys(numbers))[:4]:
         for token in addr_tokens:
-            result.add(country + '|at|' + number + '|' + token[:8])
+            result.add(country + '|at|' + number + '|' + token[:6])
     return sorted(result)
 
 
@@ -118,9 +136,11 @@ FEATURE_NAMES += ['compact_name_ratio', 'compact_name_partial', 'phonetic_name_r
                   'name_initials_ratio', 'address_letters_sorted', 'address_letters_set',
                   'fuzzy_number_best', 'fuzzy_number_mean', 'name_token_containment',
                   'address_token_containment', 'anchor_name_frequency', 'target_name_frequency']
-
+FEATURE_NAMES += ['name_jaro_winkler', 'core_jaro_winkler', 'address_jaro_winkler',
+                  'name_levenshtein', 'core_levenshtein']
 
 def features(a, b, con=None):
+    from rapidfuzz.distance import JaroWinkler, Levenshtein
     _, an, ac, aa, _ = a
     _, bn, bc, ba, _ = b
     nums_a, nums_b = re.findall(r'\b\d+\b', aa), re.findall(r'\b\d+\b', ba)
@@ -152,7 +172,12 @@ def features(a, b, con=None):
             len(set(ac.split())&set(bc.split()))/max(1,min(len(set(ac.split())),len(set(bc.split())))),
             len(set(aa.split())&set(ba.split()))/max(1,min(len(set(aa.split())),len(set(ba.split())))),
             np.log1p(con.name_frequency(a)) if con else 0.0,
-            np.log1p(con.name_frequency(b)) if con else 0.0]
+            np.log1p(con.name_frequency(b)) if con else 0.0,
+            JaroWinkler.normalized_similarity(an, bn),
+            JaroWinkler.normalized_similarity(ac, bc),
+            JaroWinkler.normalized_similarity(aa, ba),
+            Levenshtein.normalized_similarity(an, bn),
+            Levenshtein.normalized_similarity(ac, bc)]
 
 
 @lru_cache(maxsize=100000)

@@ -13,3 +13,9 @@ data/
 *.sqlite*
 *.log
 *.partial
+dataset/
+*.zip
+*.tar
+*.tar.gz
+*.rar
+.ipynb_checkpoints/

@@ -99,7 +99,7 @@ def fit(databases,destination):
     models={}
     for field in documents:
         log(f'Fit {field} character weights on {len(documents[field]):,} supplied unlabeled records')
-        model=TfidfVectorizer(analyzer='char',ngram_range=(3,5),min_df=2,max_features=200000,sublinear_tf=True,dtype=np.float32)
+        model=TfidfVectorizer(analyzer='char',ngram_range=(2,5),min_df=2,max_features=300000,sublinear_tf=True,dtype=np.float32)
         model.fit(documents[field]);models[field]=model
     destination=Path(destination);destination.parent.mkdir(parents=True,exist_ok=True)
     if destination.exists():raise FileExistsError(destination)
